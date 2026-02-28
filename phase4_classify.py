@@ -107,9 +107,15 @@ def _run_face_clustering(ok_rows: list, dry_run: bool) -> None:
         # Fallback: local weights file in project root
         yolo = YOLO("yolov8n-face.pt")
 
+    # Skip images already processed by a previous run
+    unscanned = [row for row in ok_rows if not row["face_scanned"]]
+    n_skip = len(ok_rows) - len(unscanned)
+    if n_skip:
+        print(f"  [4B] Skipping {n_skip:,} already-scanned images.")
+
     # Use new_path when files have been moved by Phase 5
     path_pairs = []  # (detect_path, original_db_path)
-    for row in ok_rows:
+    for row in unscanned:
         orig = row["path"]
         moved = row["new_path"]
         detect = moved if (moved and os.path.exists(moved)) else orig
@@ -120,9 +126,11 @@ def _run_face_clustering(ok_rows: list, dry_run: bool) -> None:
 
     face_embeddings: list[np.ndarray] = []
     face_image_paths: list[str] = []  # original DB path for each face
+    scanned_orig_paths: list[str] = []  # all originals attempted (success or fail)
 
     print("  [4B] Detecting faces ...")
-    for detect_path, _orig in tqdm(path_pairs, desc="4B face detect", unit="img"):
+    for detect_path, orig_path in tqdm(path_pairs, desc="4B face detect", unit="img"):
+        scanned_orig_paths.append(orig_path)
         try:
             results = yolo.predict(detect_path, conf=config.FACE_CONF_THRESHOLD, verbose=False)
         except Exception:
@@ -160,6 +168,14 @@ def _run_face_clustering(ok_rows: list, dry_run: bool) -> None:
                 face_image_paths.append(detect_to_orig[detect_path])
             except Exception:
                 pass
+
+    # Mark all attempted images as scanned (regardless of whether faces were found)
+    if not dry_run and scanned_orig_paths:
+        with db.transaction():
+            for orig_path in scanned_orig_paths:
+                conn.execute(
+                    "UPDATE images SET face_scanned=1 WHERE path=?", (orig_path,)
+                )
 
     if not face_embeddings:
         print("  [4B] No faces detected.")

@@ -58,7 +58,8 @@ def init_db(db_path: str = config.DB_PATH) -> None:
                                                        -- deleted_exact_dup |
                                                        -- deleted_near_dup
             embedding_path  TEXT,                      -- path to .npy DINOv2 embedding
-            new_path        TEXT                       -- path after Phase 5 move
+            new_path        TEXT,                      -- path after Phase 5 move
+            face_scanned    INTEGER DEFAULT 0          -- 1 = Phase 4B has processed this image
         );
 
         CREATE INDEX IF NOT EXISTS idx_sha256  ON images(sha256);
@@ -68,7 +69,12 @@ def init_db(db_path: str = config.DB_PATH) -> None:
         CREATE INDEX IF NOT EXISTS idx_date    ON images(date_taken);
         CREATE INDEX IF NOT EXISTS idx_camera  ON images(camera_make, camera_model);
     """)
-    conn.commit()
+    # Idempotent migration for existing databases
+    try:
+        conn.execute("ALTER TABLE images ADD COLUMN face_scanned INTEGER DEFAULT 0")
+        conn.commit()
+    except Exception:
+        pass  # Column already exists
 
 
 def upsert_image(row: dict, db_path: str = config.DB_PATH) -> None:
