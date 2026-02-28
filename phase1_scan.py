@@ -84,6 +84,12 @@ def _process_file(path: str, dry_run: bool) -> dict:
     row["height"] = height
 
     # --- Size filter ---
+    # TODO: Add a pixel-content check here to catch visually corrupt images that
+    # pass PIL's verify() — e.g. mostly-black images from partial disk recovery.
+    # Approach: convert to grayscale, compute mean brightness; if below a threshold
+    # (e.g. mean < 10 out of 255), mark as deleted_corrupt.
+    # Also consider checking std deviation — a very low std means uniform/blank image.
+    # Config knobs to add: MIN_BRIGHTNESS (default ~10), MIN_STD (default ~5).
     if width < config.MIN_WIDTH or height < config.MIN_HEIGHT:
         row["status"] = "deleted_tiny"
         if not dry_run:

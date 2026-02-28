@@ -63,6 +63,7 @@ FACE_EMB_DIM: int = 512
 
 DBSCAN_EPS: float = 0.4
 DBSCAN_MIN_SAMPLES: int = 2
+FACE_MIN_CLUSTER_SIZE: int = 10  # ignore person clusters with fewer images than this
 
 # ---------------------------------------------------------------------------
 # Device
