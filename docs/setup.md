@@ -87,8 +87,8 @@ To pre-download models before running the pipeline (useful on servers):
 
 ```bash
 python - <<'EOF'
-from transformers import AutoModel, AutoFeatureExtractor, CLIPModel, CLIPProcessor
-AutoFeatureExtractor.from_pretrained("facebook/dinov2-base")
+from transformers import AutoModel, AutoImageProcessor, CLIPModel, CLIPProcessor
+AutoImageProcessor.from_pretrained("facebook/dinov2-base")
 AutoModel.from_pretrained("facebook/dinov2-base")
 CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
 CLIPModel.from_pretrained("openai/clip-vit-base-patch32")

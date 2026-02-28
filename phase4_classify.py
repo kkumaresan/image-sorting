@@ -43,7 +43,7 @@ def _run_clip(ok_rows: list, dry_run: bool) -> None:
     text_inputs = {k: v.to(config.DEVICE) for k, v in text_inputs.items()}
 
     with torch.no_grad():
-        text_features = model.get_text_features(**text_inputs)
+        text_features = model.get_text_features(**text_inputs).pooler_output
         text_features = text_features / text_features.norm(dim=-1, keepdim=True)
 
     paths = [row["path"] for row in ok_rows]
@@ -66,7 +66,7 @@ def _run_clip(ok_rows: list, dry_run: bool) -> None:
         with torch.no_grad():
             img_inputs = processor(images=images, return_tensors="pt")
             img_inputs = {k: v.to(config.DEVICE) for k, v in img_inputs.items()}
-            img_features = model.get_image_features(**img_inputs)
+            img_features = model.get_image_features(**img_inputs).pooler_output
             img_features = img_features / img_features.norm(dim=-1, keepdim=True)
 
             # (N_images, N_labels)
@@ -97,12 +97,14 @@ def _run_face_clustering(ok_rows: list, dry_run: bool) -> None:
     from sklearn.cluster import DBSCAN
 
     print(f"\n  [4B] Loading YOLOv8 face detection model ...")
-    # The HuggingFace model ID needs to be downloaded first; ultralytics accepts
-    # a local path or a hub model name.  We use the HF hub path via ultralytics:
     try:
-        yolo = YOLO(config.YOLO_FACE_MODEL)
+        from huggingface_hub import hf_hub_download
+        weights_path = hf_hub_download(
+            repo_id=config.YOLO_FACE_MODEL, filename="model.pt"
+        )
+        yolo = YOLO(weights_path)
     except Exception:
-        # Fallback: try treating it as a local weights file name
+        # Fallback: local weights file in project root
         yolo = YOLO("yolov8n-face.pt")
 
     paths = [row["path"] for row in ok_rows]

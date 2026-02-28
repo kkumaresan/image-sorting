@@ -17,7 +17,7 @@ import numpy as np
 import torch
 from PIL import Image
 from tqdm import tqdm
-from transformers import AutoModel, AutoFeatureExtractor
+from transformers import AutoModel, AutoImageProcessor
 
 import config
 import db
@@ -140,7 +140,7 @@ def _find_candidate_groups(phashes: dict[str, int]) -> list[list[str]]:
 
 def _load_dinov2():
     print(f"  Loading DINOv2 model ({config.DINOV2_MODEL}) on {config.DEVICE} ...")
-    processor = AutoFeatureExtractor.from_pretrained(config.DINOV2_MODEL)
+    processor = AutoImageProcessor.from_pretrained(config.DINOV2_MODEL)
     model = AutoModel.from_pretrained(config.DINOV2_MODEL, torch_dtype=config.TORCH_DTYPE)
     model.to(config.DEVICE)
     model.eval()
