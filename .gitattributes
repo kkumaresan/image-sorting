@@ -1,0 +1,19 @@
+# Normalize line endings to LF on commit (eol=lf in working copy on all OS)
+* text=auto eol=lf
+
+# Python source
+*.py    text eol=lf
+
+# Markdown / docs
+*.md    text eol=lf
+*.txt   text eol=lf
+
+# Explicitly mark binary file types so git never tries to diff/merge them
+*.jpg   binary
+*.jpeg  binary
+*.png   binary
+*.npy   binary
+*.pt    binary
+*.pth   binary
+*.onnx  binary
+*.db    binary

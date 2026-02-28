@@ -1,0 +1,25 @@
+# Core image processing
+pillow>=10.4.0
+exifread>=3.0.0
+
+# Perceptual hashing
+imagehash>=4.3.1
+
+# HuggingFace ecosystem (DINOv2 + CLIP)
+transformers>=4.46.0
+# torch and torchvision are installed separately — see docs/installation.md
+
+# Object detection (YOLOv8)
+ultralytics>=8.3.0
+
+# Face recognition
+deepface>=0.0.93
+
+# Clustering & similarity search
+scikit-learn>=1.5.0
+# faiss-gpu or faiss-cpu installed separately — see docs/installation.md
+
+# Numerics & utilities
+numpy>=2.0.0
+tqdm>=4.66.0
+scipy>=1.13.0   # required by imagehash and scipy.spatial used internally
