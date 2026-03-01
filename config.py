@@ -57,7 +57,7 @@ CLIP_LABELS: list[str] = [
 # Phase 4B — face detection & clustering
 # ---------------------------------------------------------------------------
 YOLO_FACE_MODEL: str = "arnabdhar/YOLOv8-Face-Detection"
-FACE_CONF_THRESHOLD: float = 0.5   # YOLO confidence to accept a detection
+FACE_CONF_THRESHOLD: float = 0.25  # YOLO confidence to accept a detection
 ARCFACE_MODEL: str = "ArcFace"     # deepface backend
 FACE_EMB_DIM: int = 512
 

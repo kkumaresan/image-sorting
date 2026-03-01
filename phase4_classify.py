@@ -92,6 +92,12 @@ def _run_clip(ok_rows: list, dry_run: bool) -> None:
 # ===========================================================================
 
 def _run_face_clustering(ok_rows: list, dry_run: bool) -> None:
+    # Force TensorFlow (DeepFace/ArcFace) onto CPU — libdevice missing prevents
+    # GPU JIT compilation of BatchNorm, causing every embedding to fail.
+    # Using TF's own API so PyTorch/YOLO GPU access is unaffected.
+    import tensorflow as tf
+    tf.config.set_visible_devices([], "GPU")
+
     from ultralytics import YOLO
     from deepface import DeepFace
     from sklearn.cluster import DBSCAN
@@ -128,18 +134,26 @@ def _run_face_clustering(ok_rows: list, dry_run: bool) -> None:
     face_image_paths: list[str] = []  # original DB path for each face
     scanned_orig_paths: list[str] = []  # all originals attempted (success or fail)
 
+    n_yolo_errors = 0
+    n_imgs_with_faces = 0
+    n_arcface_errors = 0
+
     print("  [4B] Detecting faces ...")
     for detect_path, orig_path in tqdm(path_pairs, desc="4B face detect", unit="img"):
         scanned_orig_paths.append(orig_path)
         try:
             results = yolo.predict(detect_path, conf=config.FACE_CONF_THRESHOLD, verbose=False)
-        except Exception:
+        except Exception as ye:
+            if n_yolo_errors == 0:
+                print(f"  [4B] First YOLO error — path={detect_path!r} exists={os.path.exists(detect_path)} err={type(ye).__name__}: {ye}")
+            n_yolo_errors += 1
             continue
 
         boxes = results[0].boxes if results else None
         if boxes is None or len(boxes) == 0:
             continue
 
+        n_imgs_with_faces += 1
         img = np.array(Image.open(detect_path).convert("RGB"))
         h_img, w_img = img.shape[:2]
 
@@ -166,8 +180,13 @@ def _run_face_clustering(ok_rows: list, dry_run: bool) -> None:
                     emb /= norm
                 face_embeddings.append(emb)
                 face_image_paths.append(detect_to_orig[detect_path])
-            except Exception:
-                pass
+            except Exception as e:
+                if n_arcface_errors == 0:
+                    print(f"  [4B] First ArcFace error: {type(e).__name__}: {e}")
+                n_arcface_errors += 1
+
+    print(f"  [4B] YOLO errors: {n_yolo_errors} | images with faces: {n_imgs_with_faces}"
+          f" | ArcFace errors: {n_arcface_errors} | embeddings: {len(face_embeddings)}")
 
     # Mark all attempted images as scanned (regardless of whether faces were found)
     if not dry_run and scanned_orig_paths:
@@ -185,17 +204,17 @@ def _run_face_clustering(ok_rows: list, dry_run: bool) -> None:
 
     X = np.stack(face_embeddings)
 
-    # cosine distance = 1 - cosine_similarity (embeddings are L2-normed)
-    from sklearn.metrics.pairwise import cosine_distances
-    dist_matrix = cosine_distances(X).astype(np.float64)
-
+    # cosine distance = 1 - dot product for L2-normed embeddings.
+    # Pass metric directly to DBSCAN to avoid materializing the O(n²) distance
+    # matrix (4.5 GB for 23k embeddings) — sklearn computes distances on-the-fly.
     clustering = DBSCAN(
         eps=config.DBSCAN_EPS,
         min_samples=config.DBSCAN_MIN_SAMPLES,
-        metric="precomputed",
+        metric="cosine",
+        algorithm="brute",
         n_jobs=-1,
     )
-    labels = clustering.fit_predict(dist_matrix)
+    labels = clustering.fit_predict(X)
 
     n_clusters = int(labels.max()) + 1
     print(f"  [4B] Found {n_clusters} face clusters (label -1 = noise/unassigned).")
@@ -262,9 +281,14 @@ if __name__ == "__main__":
     p.add_argument("--dry-run", action="store_true")
     p.add_argument("--faces-only", action="store_true",
                    help="Skip CLIP classification, run only face detection & clustering")
+    p.add_argument("--limit", type=int, default=0,
+                   help="Process only the first N images (for testing)")
     args = p.parse_args()
     db.init_db()
     ok_rows = db.fetch_ok_images()
+    if args.limit:
+        ok_rows = ok_rows[:args.limit]
+        print(f"  [--limit] Processing {args.limit} images only.")
     if args.faces_only:
         _run_face_clustering(ok_rows, dry_run=args.dry_run)
     else:
